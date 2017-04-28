@@ -3,29 +3,85 @@
 Utilities for Scrapop module.
 """
 
+from __future__ import print_function
 import time
 import datetime
+import os
+import re
 from numbers import Number
-
-from urlparse import urlparse, urlunparse
 from urlparse import urlsplit, urlunsplit
-from urlparse import ParseResult
 
+import httplib2
+from apiclient import discovery
+from oauth2client import client as oauth2_client
+from oauth2client import tools
+from oauth2client.file import Storage
 import tldextract
+from awis import AwisApi
+from lxml.etree import tostring as etree_tostring #pylint: disable=no-name-in-module
 
-class SanitationHelpers(object):
+
+class SanitationUtils(object):
     """
     A set of utilities related to sanitizing strings.
     """
 
+    re_gss_hyperlink = r'=HYPERLINK\("(?P<href>[^"]*)",\s*"(?P<text>[^"]*)"\)'
+    re_alexa_siteinfo_url = (r'http://www\.alexa\.com/siteinfo/'
+                             r'(?P<domain>[^\s\#]+)(\#(?P<id>\S*))?')
+
     @classmethod
     def to_ascii(cls, thing):
+        """
+        Convert the parameter to an ascii string.
+        """
+        if not isinstance(basestring, thing):
+            thing = unicode(thing, errors='backslashreplace')
         return thing.encode(errors='backslashreplace')
 
-class URLHelpers(object):
+
+
+    @classmethod
+    def extract_target_gss_cell(cls, cell):
+        """
+        Extract the target domain from google sheet cell.
+        """
+        if not cell:
+            return
+        target_match = re.match(cls.re_gss_hyperlink, cell)
+        if target_match:
+            href = target_match.groupdict().get('href')
+            href_match = re.match(cls.re_alexa_siteinfo_url, href)
+            if href_match:
+                domain = href_match.groupdict().get('domain')
+                return domain
+
+            text = target_match.groupdict().get('text')
+            for token in text.split():
+                extracted_hostname = UrlUtils.extract_hostname(token)
+                if extracted_hostname:
+                    return extracted_hostname
+        for token in cell.split():
+            extracted_hostname = UrlUtils.extract_hostname(token)
+            if extracted_hostname:
+                return extracted_hostname
+
+class UrlUtils(object):
     """
-    A set of utilities related to parsing URLs.
+    A set of general utilities related to parsing URLs.
     """
+
+    re_domain = r'[\w.~-]\.[\w.~-]'
+
+    @classmethod
+    def extract_hostname(cls, token):
+        """
+        Extract the hostname from a string-like token.
+        """
+
+        match = re.match(cls.re_domain, token)
+        if match:
+            return match.group(0)
 
     @classmethod
     def only_domain(cls, url):
@@ -164,3 +220,111 @@ class TimeHelpers:
         if not time_struct:
             time_struct = cls.current_loctstruct()
         return time.strftime(cls.safeTimeFormat, time_struct)
+
+class ListUtils(object):
+    """
+    Utilities related to list comprehension.
+    """
+
+    @classmethod
+    def get_firsts(cls, superlist):
+        """
+        Get the first item of each sublist in the superlist.
+        """
+
+        return [
+            sublist[0] if len(sublist) else None \
+            for sublist in superlist
+        ]
+
+    @classmethod
+    def unique_true(cls, seq):
+        """
+        Get list of members that are truthy from a sequence of hashables.
+        """
+
+        return list(set(seq))
+
+class GssUtils(object):
+    """
+    Utilities related to Google Drive Spreadsheets API.
+    """
+
+    @classmethod
+    def get_credentials(cls, options):
+        """Gets valid user credentials from storage.
+
+        If nothing has been stored, or if the stored credentials are invalid,
+        the OAuth2 flow is completed to obtain the new credentials.
+
+        Returns:
+            Credentials, the obtained credential.
+        """
+        home_dir = os.path.expanduser('~')
+        credential_dir = os.path.join(home_dir, '.credentials')
+        if not os.path.exists(credential_dir):
+            os.makedirs(credential_dir)
+        credential_path = os.path.join(credential_dir,
+                                       'sheets.googleapis.com-python-quickstart.json')
+
+        store = Storage(credential_path)
+        credentials = store.get()
+        if not credentials or credentials.invalid:
+            flow = oauth2_client.flow_from_clientsecrets(options.client_secret_file, options.scopes)
+            flow.user_agent = options.app_name
+            credentials = tools.run_flow(flow, store, options)
+            print('Storing credentials to ' + credential_path)
+        return credentials
+
+    @classmethod
+    def get_range(cls, spreadsheet_id, range_name, value_render, options):
+        """Get column from spreadsheet."""
+        credentials = cls.get_credentials(options)
+        http = credentials.authorize(httplib2.Http())
+        discovery_url = ('https://sheets.googleapis.com/$discovery/rest?'
+                         'version=v4')
+        service = discovery.build('sheets', 'v4', http=http,
+                                  discoveryServiceUrl=discovery_url)
+
+        request_arguments = dict(
+            spreadsheetId=spreadsheet_id,
+            range=range_name,
+        )
+        if value_render:
+            request_arguments.update(valueRenderOption=value_render)
+
+        #pylint: disable=no-member
+        result = service.spreadsheets().values().get(**request_arguments).execute()
+        values = result.get('values', [])
+
+        return values
+
+class AwisUtils(object):
+    """
+    Utilities related to AWIS API.
+    """
+
+    @classmethod
+    def get_metrics(cls, domain, metrics, options):
+        awis_client = AwisApi(options.key_id, options.secret_key)
+
+        tree = awis_client.url_info(domain, *metrics)
+
+        alexa_prefix = awis_client.NS_PREFIXES['alexa']
+        awis_prefix = awis_client.NS_PREFIXES['awis']
+
+        elem = tree.find('//{%s}StatusCode' % alexa_prefix)
+        if elem.text != 'Success':
+            raise UserWarning('unable to get metrics: %s' % etree_tostring(tree))
+
+        metric_values = {}
+
+        for metric in metrics:
+            elem = tree.find('//{%s}%s' % (awis_prefix, metric))
+            if elem is None:
+                raise UserWarning('unable to find metric within response: %s' %\
+                                  etree_tostring(tree))
+            metric_values[metric] = elem.text
+
+        print("success: %s" % metric_values)
+        return metric_values
