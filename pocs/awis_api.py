@@ -1,7 +1,7 @@
 import configargparse
 import awis
 from awis import AwisApi
-from lxml.etree import tostring as etree_tostring
+from lxml.etree import tostring as etree_tostring #pylint: disable=no-name-in-module
 
 def main():
 
@@ -23,8 +23,8 @@ def main():
     alexa_prefix = client.NS_PREFIXES['alexa']
     awis_prefix = client.NS_PREFIXES['awis']
 
-    # elem = tree.find('//{%s}StatusCode' % alexa_prefix)
-    # assert elem.text == 'Success'
+    elem = tree.find('//{%s}StatusCode' % alexa_prefix)
+    assert elem.text == 'Success'
 
     elem = tree.find('//{%s}Rank' % awis_prefix)
     print repr(elem)
