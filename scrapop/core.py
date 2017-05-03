@@ -3,7 +3,7 @@ Core methods for scraping data from Popularity metrics websites and storing in g
 """
 
 from __future__ import print_function
-from collections import namedtuple, OrderedDict
+from collections import OrderedDict
 import re
 
 import configargparse
@@ -140,7 +140,8 @@ def main():
     # print("unique_domains:\n%s" % pformat(unique_domains))
 
     metrics = {}
-    metric_names = ['Rank']
+    # metric_names = ['Rank']
+    metric_names = ['Rank', 'LinksInCount', 'Speed']
 
     # TODO: get chunking working in the folliwng comment block:
 
@@ -152,6 +153,7 @@ def main():
             print("reached limit")
             break
         domains = unique_domains[index:index + chunk_size]
+        domains = [UrlUtils.only_domain(domain) for domain in domains]
         responses = AwisUtils.get_metrics(domains, metric_names, options)
         if responses:
             for domain, response in zip(domains, responses):
@@ -183,8 +185,11 @@ def main():
     # report_headers = ['domain'] + metric_names + ['errors', 'cell']
 
     with open(options.out_file, 'w+') as report_handle:
-
-        report_contents = tabulate(cell_info, headers=report_headers, tablefmt="html")
+        cell_table = [
+            [info_row.get(header_key) for header_key in report_headers] \
+            for info_row in cell_info
+        ]
+        report_contents = tabulate(cell_table, headers=report_headers, tablefmt="html")
         report_contents = re.sub("<table>", "<table class=\"table table-striped\">", report_contents)
         report_contents = "<h1>Metrics Report</h1><p>" + report_contents + "</p>"
         report_contents = """\

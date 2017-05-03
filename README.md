@@ -15,7 +15,7 @@ Usage
 ----
 
 ```
-    python -m scrapop.core -c <your yaml config>
+python -m scrapop.core -c <your yaml config>
 ```
 
 Todo

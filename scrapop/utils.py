@@ -320,7 +320,8 @@ class AwisUtils(object):
             raise UserWarning('unable to get metrics: %s' % etree_tostring(tree))
 
         metric_values = []
-        for elem_result in tree.findall('//{%s}UrlInfoResult' % awis_prefix):
+        elems_results = enumerate(tree.findall('//{%s}UrlInfoResult' % awis_prefix))
+        for result_count, elem_result in elems_results:
             # print("UrlInfoResult Elem: %s" % etree_tostring(elem_result))
             # print("elem_result tag: %s, text: %s" % (elem_result.tag, elem_result.text))
             tree_result = ElementTree(elem_result)
@@ -331,6 +332,9 @@ class AwisUtils(object):
                 domain = elem_url.text
                 if domain[-1] == "/":
                     domain = domain[:-1]
+
+            assert domain == domains[result_count], \
+                "sanity check %s == %s" % (domain, domains[result_count])
             # if domain:
                 # print("getting results for domain %s" % domain)
 
