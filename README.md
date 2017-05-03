@@ -6,18 +6,21 @@
 /____/\___/_/   \__,_/_/    \____/ .___/
                                 /_/      
 ```
-#ScraPop
+ScraPop
+----
 
 Scrapes site popularity metrics, stores in Google Drive
 
-#Usage
+Usage
+----
 
 ```
     python -m scrapop.core -c <your yaml config>
 ```
 
-#Todo:
+Todo
+----
 
-```
-    Chunk urls before requesting
-```
+- [x] Chunk urls before requesting
+- [x] Create html report before updating google drive
+- [ ] write results to google drive

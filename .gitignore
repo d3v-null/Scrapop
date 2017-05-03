@@ -104,3 +104,5 @@ client_secret.json
 *.yaml
 
 report.html
+
+*.zip
