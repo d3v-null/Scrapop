@@ -2,6 +2,7 @@ import configargparse
 
 from awis import AwisApi
 from lxml.etree import tostring as etree_tostring #pylint: disable=no-name-in-module
+from lxml.etree import ElementTree
 
 def main():
 
@@ -28,9 +29,10 @@ def main():
 
     for elem_result in tree.findall('//{%s}UrlInfoResult' % awis_prefix):
         print etree_tostring(elem_result)
-        elem_metric = elem_result.find('//{%s}Rank' % awis_prefix)
+        tree_result = ElementTree(elem_result)
+        elem_metric = tree_result.find('//{%s}Rank' % awis_prefix)
         if elem_metric is not None:
-            print elem_metric.tag, elem_metric.text
+            print "elem_metric tag: %s, text: %s " % (elem_metric.tag, elem_metric.text)
 
 if __name__ == '__main__':
     main()
