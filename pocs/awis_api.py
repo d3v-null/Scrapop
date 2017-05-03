@@ -1,5 +1,5 @@
 import configargparse
-import awis
+
 from awis import AwisApi
 from lxml.etree import tostring as etree_tostring #pylint: disable=no-name-in-module
 
@@ -11,12 +11,12 @@ def main():
 
     argparser.add_argument('--key-id', required=True)
     argparser.add_argument('--secret-key', required=True)
-    argparser.add_argument('--site', required=True)
+    argparser.add_argument('--sites', required=True, nargs='+')
     args = argparser.parse_args()
 
     client = AwisApi(args.key_id, args.secret_key)
 
-    tree = client.url_info(args.site, "Rank", "LinksInCount", "Speed")
+    tree = client.url_info(args.sites, "Rank", "LinksInCount", "Speed")
     print etree_tostring(tree)
 
     print "client ns_prefixes: ", client.NS_PREFIXES
@@ -26,10 +26,11 @@ def main():
     elem = tree.find('//{%s}StatusCode' % alexa_prefix)
     assert elem.text == 'Success'
 
-    elem = tree.find('//{%s}Rank' % awis_prefix)
-    print repr(elem)
-    if elem is not None:
-        print elem.tag, elem.text
+    for elem_result in tree.findall('//{%s}UrlInfoResult' % awis_prefix):
+        print etree_tostring(elem_result)
+        elem_metric = elem_result.find('//{%s}Rank' % awis_prefix)
+        if elem_metric is not None:
+            print elem_metric.tag, elem_metric.text
 
 if __name__ == '__main__':
     main()
