@@ -9,3 +9,15 @@
 #ScraPop
 
 Scrapes site popularity metrics, stores in Google Drive
+
+#Usage
+
+```
+    python -m scrapop.core -c <your yaml config>
+```
+
+#Todo:
+
+```
+    Chunk urls before requesting
+```
