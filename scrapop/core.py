@@ -142,27 +142,29 @@ def main():
     metrics = {}
     metric_names = ['Rank']
 
+    # TODO: get chunking working in the folliwng comment block:
 
-    # chunk_size = 5
-    # count = 0
-    # for index in range(0, len(unique_domains), chunk_size):
-    #     count += 1
-    #     if count >= options.requests_limit:
-    #         break
-    #     domains = unique_domains[index:index + chunk_size]
-    #     responses = AwisUtils.get_metrics(domains, metric_names, options)
-    #     if responses:
-    #         for domain, response in zip(domains, responses):
-    #             metrics[domain] = response
-
-    for count, domain in enumerate(unique_domains):
-        # print("count, req_limit: (%s, %s)" % (repr(count), repr(options.requests_limit)))
-        if count >= options.requests_limit:
+    chunk_size = 5
+    count = -1
+    for index in range(0, len(unique_domains), chunk_size):
+        count += 1
+        if options.requests_limit and count >= options.requests_limit:
             print("reached limit")
             break
-        response = AwisUtils.get_metrics(domain, metric_names, options)
-        if response:
-            metrics[domain] = response
+        domains = unique_domains[index:index + chunk_size]
+        responses = AwisUtils.get_metrics(domains, metric_names, options)
+        if responses:
+            for domain, response in zip(domains, responses):
+                metrics[domain] = response
+
+    # for count, domain in enumerate(unique_domains):
+    #     # print("count, req_limit: (%s, %s)" % (repr(count), repr(options.requests_limit)))
+    #     if count >= options.requests_limit:
+    #         print("reached limit")
+    #         break
+    #     response = AwisUtils.get_metrics(domain, metric_names, options)
+    #     if response:
+    #         metrics[domain] = response
 
     # print("metrics:\n%s" % pformat(metrics))
     for cell_datum in cell_info:

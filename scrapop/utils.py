@@ -18,7 +18,9 @@ from oauth2client import tools
 from oauth2client.file import Storage
 import tldextract
 from awis import AwisApi
-from lxml.etree import tostring as etree_tostring #pylint: disable=no-name-in-module
+#pylint: disable=no-name-in-module
+from lxml.etree import tostring as etree_tostring
+from lxml.etree import ElementTree
 
 
 class SanitationUtils(object):
@@ -305,10 +307,10 @@ class AwisUtils(object):
     """
 
     @classmethod
-    def get_metrics(cls, domain, metrics, options):
+    def get_metrics(cls, domains, metrics, options):
         awis_client = AwisApi(options.key_id, options.secret_key)
 
-        tree = awis_client.url_info(domain, *metrics)
+        tree = awis_client.url_info(domains, *metrics)
 
         alexa_prefix = awis_client.NS_PREFIXES['alexa']
         awis_prefix = awis_client.NS_PREFIXES['awis']
@@ -317,14 +319,29 @@ class AwisUtils(object):
         if elem.text != 'Success':
             raise UserWarning('unable to get metrics: %s' % etree_tostring(tree))
 
-        metric_values = {}
+        metric_values = []
+        for elem_result in tree.findall('//{%s}UrlInfoResult' % awis_prefix):
+            # print("UrlInfoResult Elem: %s" % etree_tostring(elem_result))
+            # print("elem_result tag: %s, text: %s" % (elem_result.tag, elem_result.text))
+            tree_result = ElementTree(elem_result)
+            domain = None
+            elem_url = tree_result.find('//{%s}DataUrl' % awis_prefix)
+            if elem_url is not None:
+                # print("elem_url tag: %s, text: %s" % (elem_url.tag, elem_url.text))
+                domain = elem_url.text
+                if domain[-1] == "/":
+                    domain = domain[:-1]
+            # if domain:
+                # print("getting results for domain %s" % domain)
 
-        for metric in metrics:
-            elem = tree.find('//{%s}%s' % (awis_prefix, metric))
-            if elem is None:
-                raise UserWarning('unable to find metric within response: %s' %\
-                                  etree_tostring(tree))
-            metric_values[metric] = elem.text
+            domain_metrics = {}
+            for metric in metrics:
+                elem_metric = tree_result.find('//{%s}%s' % (awis_prefix, metric))
+                if elem_metric is None:
+                    raise UserWarning('unable to find metric within UrlInfoResult: %s' \
+                        % etree_tostring(tree_result))
+                domain_metrics[metric] = elem_metric.text
+            metric_values.append(domain_metrics)
 
         print("success: %s" % metric_values)
         return metric_values
